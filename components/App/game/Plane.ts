@@ -213,11 +213,7 @@ export class Plane {
     const localRot = Quaternion.createFromEuler(deltaYaw, deltaPitch, deltaRoll, 'YXZ');
     this.rotation = Quaternion.multiply(this.rotation, localRot);
     
-    // Normalize quaternion
-    let len = Math.sqrt(this.rotation[0]*this.rotation[0] + this.rotation[1]*this.rotation[1] + this.rotation[2]*this.rotation[2] + this.rotation[3]*this.rotation[3]);
-    if(len > 0) {
-        this.rotation[0] /= len; this.rotation[1] /= len; this.rotation[2] /= len; this.rotation[3] /= len;
-    }
+    this.rotation = this.rotation.normalize();
 
     // Throttle controls
     const accelRate = throttleInput * (this.isLanded ? 20.0 : 30.0);
