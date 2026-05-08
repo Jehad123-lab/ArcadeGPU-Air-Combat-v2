@@ -134,10 +134,10 @@ export class GameScreen extends Screen {
     // Offset behind and up 
     const offsetQuat = Quaternion.createFromEuler(camYaw, camPitch * 0.6, 0, 'YXZ');
     
-    // Dynamic camera back offset based on velocity
+    // Dynamic camera back offset
     const speedFactor = Math.max(0, (this.plane.velocity - 50) / 100.0);
-    const zOffset = 18 + speedFactor * 8.0; 
-    const yOffset = 4 + speedFactor * 2.0;
+    const zOffset = 15; 
+    const yOffset = 3;
 
     const camOffset = offsetQuat.rotateVector([0, yOffset, zOffset]);
     
@@ -152,36 +152,26 @@ export class GameScreen extends Screen {
     ] as vec3;
     
     const camPos = this.camera.getPosition();
-    // Use much faster lerp rates to keep the plane centered
-    const posLerpRate = 1.0 - Math.exp(-15.0 * (ts / 1000));
-    const targetLerpRate = 1.0 - Math.exp(-20.0 * (ts / 1000));
+    const posLerpRate = 1.0 - Math.exp(-25.0 * (ts / 1000));
+    const targetLerpRate = 1.0 - Math.exp(-30.0 * (ts / 1000));
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
     const desiredLookTarget = [
-        followPos[0] - forwardVec[0] * 5.0, // Look slightly ahead of the plane, not just at it
-        followPos[1] - forwardVec[1] * 5.0 + 2.0, 
-        followPos[2] - forwardVec[2] * 5.0
+        followPos[0] - forwardVec[0] * 10.0, 
+        followPos[1] - forwardVec[1] * 10.0 + 1.0, 
+        followPos[2] - forwardVec[2] * 10.0
     ] as vec3;
     
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, desiredLookTarget, targetLerpRate);
     
-    // Dynamic camera up vector: rolls slightly into turns (30% of plane roll)
+    // Dynamic camera up vector: rolls slightly into turns
     const planeUp = planeRot.rotateVector([0, 1, 0]);
     const staticUp: vec3 = [0, 1, 0];
-    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, 0.5)); // 50% roll follow for better feel
+    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, 0.5)); 
 
     if (!isNaN(lerpedPos[0]) && !isNaN(lerpedPos[1]) && !isNaN(lerpedPos[2])) {
-        // Camera shake at high speeds
-        let shakeX = 0, shakeY = 0, shakeZ = 0;
-        if (speedFactor > 0.5) {
-            const shakeMag = (speedFactor - 0.5) * 0.8; // Reduced shake magnitude
-            shakeX = (Math.random() - 0.5) * shakeMag;
-            shakeY = (Math.random() - 0.5) * shakeMag;
-            shakeZ = (Math.random() - 0.5) * shakeMag;
-        }
-        
-        this.camera.setPosition(lerpedPos[0] + shakeX, lerpedPos[1] + shakeY, lerpedPos[2] + shakeZ);
-        this.camera.lookAt(this.cameraLookTarget[0] + shakeX * 0.2, this.cameraLookTarget[1] + shakeY * 0.2, this.cameraLookTarget[2] + shakeZ * 0.2, cameraUp);
+        this.camera.setPosition(lerpedPos[0], lerpedPos[1], lerpedPos[2]);
+        this.camera.lookAt(this.cameraLookTarget[0], this.cameraLookTarget[1], this.cameraLookTarget[2], cameraUp);
     }
     
     // Expand FOV with speed for dramatic effect

@@ -273,13 +273,18 @@ export class Plane {
         if (this.velocity <= 35 && nextVel[1] > 0) {
             nextVel[1] = 0;
         }
-        
-        // Use a spring to keep plane at groundY instead of sudden snapping
+
         const errorY = groundY - planeY;
-        if (errorY > 0.05) {
-            nextVel[1] += errorY * 10.0; // Spring up
-        } else if (nextVel[1] < 0) {
-            nextVel[1] = 0; // Prevent falling through
+        if (errorY > 0.01) {
+            // Instantly snap to ground if below ground somehow, instead of jumping
+            const currentPos = this.physicsBody.body.GetPosition();
+            currentPos.SetY(groundY);
+            this.physicsBody.body.SetPosition(currentPos);
+        }
+        
+        // Prevent any sinking
+        if (nextVel[1] < 0) {
+            nextVel[1] = 0; 
         }
     }
     
