@@ -16,22 +16,6 @@ import { eventManager } from '@lib/core/event_manager';
 import { inputManager } from '@lib/input/input_manager';
 import { Plane } from './Plane';
 import { Environment } from './Environment';
-import { Gfx3Mesh } from '@lib/gfx3_mesh/gfx3_mesh';
-import { createBoxMesh } from './GameUtils';
-
-interface Bullet {
-  mesh: Gfx3Mesh;
-  position: vec3;
-  velocity: vec3;
-  life: number;
-}
-
-interface Enemy {
-  mesh: Gfx3Mesh;
-  position: vec3;
-  size: number;
-  active: boolean;
-}
 
 export class GameScreen extends Screen {
   camera: Gfx3Camera;
@@ -48,10 +32,6 @@ export class GameScreen extends Screen {
   
   virtualMouseX: number = 0;
   virtualMouseY: number = 0;
-
-  bullets: Bullet[] = [];
-  enemies: Enemy[] = [];
-  lastShootTime: number = 0;
 
   constructor() {
     super();
@@ -81,27 +61,9 @@ export class GameScreen extends Screen {
     inputManager.registerAction('keyboard', 'ArrowRight', 'YAW_RIGHT');
     inputManager.registerAction('keyboard', 'ShiftLeft', 'SPECIAL_MOVE');
     inputManager.registerAction('keyboard', 'ShiftRight', 'SPECIAL_MOVE');
-    inputManager.registerAction('mouse', 'Button0', 'SHOOT');
 
     inputManager.setPointerLockEnabled(true);
     eventManager.subscribe(inputManager, 'E_MOUSE_MOVE', this, this.handleMouseMove);
-
-    // Spawn some enemies in the sky
-    this.enemies = [];
-    for (let i = 0; i < 20; i++) {
-        const enemy: Enemy = {
-            mesh: createBoxMesh(8, 8, 8, [1, 0, 0]), // Red boxes
-            position: [
-                (Math.random() - 0.5) * 1000,
-                50 + Math.random() * 200,
-                (Math.random() - 0.5) * 1000
-            ],
-            size: 8,
-            active: true
-        };
-        enemy.mesh.setPosition(enemy.position[0], enemy.position[1], enemy.position[2]);
-        this.enemies.push(enemy);
-    }
 
     this.camera.setPosition(0, 10, -10);
     this.camera.lookAt(0, 0, 0);
@@ -153,8 +115,9 @@ export class GameScreen extends Screen {
         this.virtualMouseX *= Math.exp(-2.5 * (ts / 1000));
         this.virtualMouseY *= Math.exp(-2.5 * (ts / 1000));
         
-        yawInput -= this.virtualMouseX * 0.8; // mostly rudder
-        pitchInput -= this.virtualMouseY; // Invert pitch
+        yawInput -= this.virtualMouseX * 0.3; // mostly rudder
+        rollInput -= this.virtualMouseX; // mostly bank
+        pitchInput += this.virtualMouseY; // Pitch up/down
     }
     this.frameMouseX = 0;
     this.frameMouseY = 0;
@@ -182,11 +145,10 @@ export class GameScreen extends Screen {
     let yOffset = 4 + speedFactor * 2.0;
 
     // Cinematic pull-back effect during barrel roll
-    if (this.plane.isBarrelRolling) {
-        const rollT = this.plane.barrelRollProgress;
-        const pullBack = Math.sin(rollT * Math.PI) * 15.0; // Dynamic zoom out
-        zOffset += pullBack;
-    }
+    const rollT = this.plane.isBarrelRolling ? this.plane.barrelRollProgress : 0;
+    const rollBlend = Math.sin(rollT * Math.PI); // Smooth bell curve 0 -> 1 -> 0
+
+    zOffset += rollBlend * 12.0; // Dynamic zoom out during barrel roll
 
     const camOffset = offsetQuat.rotateVector([0, yOffset, zOffset]);
     
@@ -201,15 +163,13 @@ export class GameScreen extends Screen {
     ] as vec3;
     
     const camPos = this.camera.getPosition();
-    // Use much faster lerp rates to keep the plane centered
-    let posLerpRate = 1.0 - Math.exp(-15.0 * (ts / 1000));
-    let targetLerpRate = 1.0 - Math.exp(-20.0 * (ts / 1000));
+    
+    // Smoothly loosen the camera follow rate during barrel roll to let plane drift in frame
+    let posStrength = 15.0 * (1.0 - rollBlend * 0.75); // goes from 15 -> 3.75
+    let targetStrength = 20.0 * (1.0 - rollBlend * 0.7); // goes from 20 -> 6.0
 
-    // Loosen the follow rate during barrel roll to let plane drift in frame slightly
-    if (this.plane.isBarrelRolling) {
-        posLerpRate = 1.0 - Math.exp(-4.0 * (ts / 1000));
-        targetLerpRate = 1.0 - Math.exp(-6.0 * (ts / 1000));
-    }
+    let posLerpRate = 1.0 - Math.exp(-posStrength * (ts / 1000));
+    let targetLerpRate = 1.0 - Math.exp(-targetStrength * (ts / 1000));
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
     const desiredLookTarget = [
@@ -224,9 +184,9 @@ export class GameScreen extends Screen {
     const planeUp = planeRot.rotateVector([0, 1, 0]);
     const staticUp: vec3 = [0, 1, 0];
     
-    // Smoothly blend out camera roll during barrel roll so the universe doesn't spin
-    const targetCameraRoll = this.plane.isBarrelRolling ? 0.05 : 0.5;
-    this.cameraRollLerp = UT.LERP(this.cameraRollLerp, targetCameraRoll, 1.0 - Math.exp(-4.0 * (ts / 1000)));
+    // Smoothly blend out camera roll during barrel roll so the universe doesn't spin wildly
+    const targetCameraRoll = 0.5 * (1.0 - rollBlend * 0.9); // goes from 0.5 to 0.05
+    this.cameraRollLerp = UT.LERP(this.cameraRollLerp, targetCameraRoll, 1.0 - Math.exp(-8.0 * (ts / 1000)));
     
     const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, this.cameraRollLerp));
 
@@ -251,60 +211,6 @@ export class GameScreen extends Screen {
     const targetFov = baseFov + speedFactor * (maxFov - baseFov);
     const currentFov = this.camera.getPerspectiveFovy() || baseFov;
     this.camera.setPerspectiveFovy(UT.LERP(currentFov, targetFov, 2.0 * (ts/1000)));
-
-    // Handle shooting
-    if (inputManager.isActiveAction('SHOOT') && Date.now() - this.lastShootTime > 150) {
-        this.lastShootTime = Date.now();
-        const bulletPos = [this.plane.getPosition()[0], this.plane.getPosition()[1], this.plane.getPosition()[2]] as vec3;
-        const planeForward = planeRot.rotateVector([0, 0, -1]);
-        const trueSpeed = this.plane.isLanded ? Math.max(0, this.plane.velocity) : this.plane.velocity;
-        const planeVelocity = UT.VEC3_SCALE(planeForward, trueSpeed);
-        const bulletVel = [
-            planeVelocity[0] + planeForward[0] * 300,
-            planeVelocity[1] + planeForward[1] * 300,
-            planeVelocity[2] + planeForward[2] * 300
-        ] as vec3;
-        
-        const bulletMesh = createBoxMesh(0.5, 0.5, 3.0, [1, 1, 0]); // Yellow laser trace
-        bulletMesh.setPosition(bulletPos[0], bulletPos[1], bulletPos[2]);
-        bulletMesh.setRotation(this.plane.rotation[0], this.plane.rotation[1], this.plane.rotation[2]); // Keep same rotation approximately
-        
-        this.bullets.push({
-            mesh: bulletMesh,
-            position: bulletPos,
-            velocity: bulletVel,
-            life: 2.0 // 2 seconds
-        });
-    }
-
-    // Update bullets
-    for (let i = this.bullets.length - 1; i >= 0; i--) {
-        const b = this.bullets[i];
-        b.life -= ts / 1000;
-        if (b.life <= 0) {
-            b.mesh.free();
-            this.bullets.splice(i, 1);
-            continue;
-        }
-        
-        b.position[0] += b.velocity[0] * (ts / 1000);
-        b.position[1] += b.velocity[1] * (ts / 1000);
-        b.position[2] += b.velocity[2] * (ts / 1000);
-        b.mesh.setPosition(b.position[0], b.position[1], b.position[2]);
-        
-        // Check collisions with enemies
-        for (let j = 0; j < this.enemies.length; j++) {
-            const e = this.enemies[j];
-            if (!e.active) continue;
-            const distSq = (b.position[0] - e.position[0])**2 + (b.position[1] - e.position[1])**2 + (b.position[2] - e.position[2])**2;
-            if (distSq < (e.size)**2) {
-                e.active = false;
-                e.mesh.free();
-                
-                b.life = 0; // Destroy bullet
-            }
-        }
-    }
   }
 
   draw() {
@@ -319,13 +225,6 @@ export class GameScreen extends Screen {
 
     this.level.draw(camPos);
     this.plane.draw();
-    
-    for (const b of this.bullets) {
-        b.mesh.draw();
-    }
-    for (const e of this.enemies) {
-        if (e.active) e.mesh.draw();
-    }
     
     gfx3Manager.endDrawing();
   }

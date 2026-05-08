@@ -210,21 +210,21 @@ export class Plane {
 
     if (this.isBarrelRolling) {
         const rollDuration = 1.0; // 1.0 seconds for a smooth, cinematic roll
-        const prevProgress = this.barrelRollProgress;
         this.barrelRollProgress += dt / rollDuration;
         
-        const t1 = Math.min(1.0, prevProgress);
-        const t2 = Math.min(1.0, this.barrelRollProgress);
+        // Use a sine wave for smooth acceleration and deceleration of the roll rate
+        // We want the integral of rollRate over rollDuration to equal 2*PI.
+        // Integral of sin(x * PI) from 0 to 1 is 2/PI. 
+        // So multiplying by PI/2 makes the integral exactly 1.
+        const totalRoll = Math.PI * 2 * this.barrelRollDirection;
+        const rateMultiplier = (Math.PI / 2) * Math.sin(this.barrelRollProgress * Math.PI);
         
-        // Smoothstep easing for acceleration and deceleration
-        const ease1 = t1 * t1 * (3 - 2 * t1);
-        const ease2 = t2 * t2 * (3 - 2 * t2);
-        
-        const deltaAngle = (ease2 - ease1) * Math.PI * 2;
-        deltaRoll = deltaAngle * this.barrelRollDirection;
+        this.rollRate = (totalRoll * rateMultiplier) / rollDuration;
+        deltaRoll = this.rollRate * dt;
         
         // Slight pitch up during roll to make it helical (a true barrel roll)
-        deltaPitch = Math.sin(t2 * Math.PI) * 0.5 * dt;
+        this.pitchRate = Math.sin(this.barrelRollProgress * Math.PI) * 1.2;
+        deltaPitch = this.pitchRate * dt;
 
         if (this.barrelRollProgress >= 1.0) {
             this.isBarrelRolling = false;
@@ -232,9 +232,7 @@ export class Plane {
 
         // Lock other controls during roll
         deltaYaw = 0;
-        this.pitchRate = 0;
         this.yawRate = 0;
-        this.rollRate = 0;
     } else if (this.isLanded) {
         // Auto-level roll
         const localRight = this.rotation.rotateVector([1, 0, 0]);
