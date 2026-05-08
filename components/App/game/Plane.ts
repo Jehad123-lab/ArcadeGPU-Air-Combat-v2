@@ -154,6 +154,14 @@ export class Plane {
 
     let targetRollRate = (rollInput * rollResponsiveness + autoLevelRoll) * maneuverability;
     
+    // Auto-level pitch if no pitch input
+    let autoLevelPitch = 0;
+    if (Math.abs(pitchInput) < 0.1 && !this.isLanded) {
+        const localForward = this.rotation.rotateVector([0, 0, -1]);
+        const pitchAngle = Math.asin(Math.max(-1, Math.min(1, -localForward[1]))); // Positive means pointing down
+        autoLevelPitch = pitchAngle * 1.2; // Gently pull towards level nose
+    }
+    
     let groundProximityPitch = 0;
     if (!this.isLanded && planeY < groundY + 10 && this.velocity > 20 && pitchInput <= 0.1) {
         const localForward = this.rotation.rotateVector([0, 0, -1]);
@@ -165,7 +173,7 @@ export class Plane {
         }
     }
     
-    let targetPitchRate = (pitchInput * pitchResponsiveness + groundProximityPitch) * maneuverability;
+    let targetPitchRate = (pitchInput * pitchResponsiveness + autoLevelPitch + groundProximityPitch) * maneuverability;
     
     // Natural yaw from bank
     let bankTurnYaw = currentRollAngle * 0.5; // If banked right (negative angle), we want to yaw right (negative yaw)
@@ -258,8 +266,8 @@ export class Plane {
     
     // Add lack-of-lift gravity (stall effect)
     if (!this.isLanded) {
-        const liftFactor = Math.min(1.0, this.velocity / 60.0); // full lift at 60 speed
-        nextVel[1] -= (1.0 - liftFactor) * 25.0 * dt; // Gravity down
+        const liftFactor = Math.min(1.0, this.velocity / 40.0); // full lift at 40 speed
+        nextVel[1] -= (1.0 - liftFactor) * 20.0 * dt; // Gravity down
     }
     
     if (this.isLanded) {
