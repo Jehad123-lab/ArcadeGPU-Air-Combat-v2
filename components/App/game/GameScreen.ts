@@ -58,6 +58,8 @@ export class GameScreen extends Screen {
     inputManager.registerAction('keyboard', 'ArrowDown', 'PITCH_UP');
     inputManager.registerAction('keyboard', 'ArrowLeft', 'YAW_LEFT');
     inputManager.registerAction('keyboard', 'ArrowRight', 'YAW_RIGHT');
+    inputManager.registerAction('keyboard', 'ShiftLeft', 'SPECIAL_MOVE');
+    inputManager.registerAction('keyboard', 'ShiftRight', 'SPECIAL_MOVE');
 
     inputManager.setPointerLockEnabled(true);
     eventManager.subscribe(inputManager, 'E_MOUSE_MOVE', this, this.handleMouseMove);
@@ -87,6 +89,7 @@ export class GameScreen extends Screen {
     let pitchInput = 0;
     let yawInput = 0;
     let throttleInput = 0;
+    let specialMove = false;
     
     if (inputManager.isActiveAction('ROLL_LEFT')) rollInput += 1;
     if (inputManager.isActiveAction('ROLL_RIGHT')) rollInput -= 1;
@@ -96,6 +99,7 @@ export class GameScreen extends Screen {
     if (inputManager.isActiveAction('YAW_RIGHT')) yawInput -= 1;
     if (inputManager.isActiveAction('THR_UP')) throttleInput += 1;
     if (inputManager.isActiveAction('THR_DOWN')) throttleInput -= 1;
+    if (inputManager.isActiveAction('SPECIAL_MOVE')) specialMove = true;
     
     // Also use mouse for pitch/yaw if pointer is locked
     if (inputManager.isPointerLockCaptured()) {
@@ -118,7 +122,7 @@ export class GameScreen extends Screen {
     this.frameMouseY = 0;
 
     this.level.update(ts);
-    this.plane.update(ts, rollInput, pitchInput, yawInput, throttleInput);
+    this.plane.update(ts, rollInput, pitchInput, yawInput, throttleInput, specialMove);
 
     // Camera follow the plane smoothly
     const followPos = this.plane.getPosition();

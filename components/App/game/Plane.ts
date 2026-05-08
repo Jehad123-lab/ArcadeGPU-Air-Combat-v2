@@ -34,6 +34,9 @@ export class Plane {
   
   rotation: Quaternion = new Quaternion();
 
+  isBarrelRolling: boolean = false;
+  barrelRollProgress: number = 0;
+  barrelRollDirection: number = 0;
   
   rollRate: number = 0;
   pitchRate: number = 0;
@@ -96,10 +99,16 @@ export class Plane {
      return [pos.GetX(), pos.GetY(), pos.GetZ()];
   }
 
-  update(ts: number, rollInput: number, pitchInput: number, yawInput: number, throttleInput: number) {
+  update(ts: number, rollInput: number, pitchInput: number, yawInput: number, throttleInput: number, specialMove: boolean = false) {
     const pos = this.physicsBody.body.GetPosition();
     const planeY = pos.GetY();
     const groundY = 1.3; // Wheels extend to approx -1.2
+
+    if (specialMove && !this.isBarrelRolling && !this.isLanded) {
+        this.isBarrelRolling = true;
+        this.barrelRollProgress = 0;
+        this.barrelRollDirection = rollInput < 0 ? -1 : 1; // Bank left if roll right input, default 1
+    }
 
     if (planeY <= groundY + 0.1) {
         if (!this.isLanded) {
@@ -126,7 +135,7 @@ export class Plane {
     }
 
     const minSpeed = this.isLanded ? 0 : 25;
-    const maxSpeed = 150;
+    const maxSpeed = 85;
     const dt = ts / 1000;
     
     // Convert inputs to target rates
@@ -196,7 +205,25 @@ export class Plane {
     let deltaPitch = this.pitchRate * dt; 
     let deltaRoll = this.rollRate * dt;
 
-    if (this.isLanded) {
+    if (this.isBarrelRolling) {
+        const rollSpeed = Math.PI * 2 / 1.0; // 1 second to complete
+        const frameRoll = rollSpeed * dt;
+        deltaRoll = frameRoll * this.barrelRollDirection;
+        this.barrelRollProgress += frameRoll;
+
+        if (this.barrelRollProgress >= Math.PI * 2) {
+            this.isBarrelRolling = false;
+            // Snapping handled naturally or could clamp
+            const overshoot = this.barrelRollProgress - Math.PI * 2;
+            deltaRoll -= overshoot * this.barrelRollDirection;
+        }
+
+        // Lock other controls during roll
+        deltaPitch = 0;
+        deltaYaw = 0;
+        this.pitchRate = 0;
+        this.yawRate = 0;
+    } else if (this.isLanded) {
         // Auto-level roll
         const localRight = this.rotation.rotateVector([1, 0, 0]);
         const rollError = Math.asin(Math.max(-1, Math.min(1, localRight[1])));
