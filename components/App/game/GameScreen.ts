@@ -16,11 +16,16 @@ import { eventManager } from '@lib/core/event_manager';
 import { inputManager } from '@lib/input/input_manager';
 import { Plane } from './Plane';
 import { Environment } from './Environment';
+import { BulletManager } from './Bullets';
+import { EnemyManager } from './Enemies';
 
 export class GameScreen extends Screen {
   camera: Gfx3Camera;
   plane: Plane;
   level: Environment;
+  bulletManager: BulletManager;
+  enemyManager: EnemyManager;
+  fireCooldown: number = 0;
   moveDir = { x: 0, y: 0 };
   
   cameraLookTarget: vec3 = [0, 0, 0];
@@ -38,6 +43,8 @@ export class GameScreen extends Screen {
     this.camera = new Gfx3Camera(0);
     this.plane = new Plane();
     this.level = new Environment();
+    this.bulletManager = new BulletManager();
+    this.enemyManager = new EnemyManager();
   }
 
   async onEnter() {
@@ -61,6 +68,7 @@ export class GameScreen extends Screen {
     inputManager.registerAction('keyboard', 'ArrowRight', 'YAW_RIGHT');
     inputManager.registerAction('keyboard', 'ShiftLeft', 'SPECIAL_MOVE');
     inputManager.registerAction('keyboard', 'ShiftRight', 'SPECIAL_MOVE');
+    inputManager.registerAction('keyboard', 'Space', 'FIRE');
 
     inputManager.setPointerLockEnabled(true);
     eventManager.subscribe(inputManager, 'E_MOUSE_MOVE', this, this.handleMouseMove);
@@ -72,6 +80,10 @@ export class GameScreen extends Screen {
     const planePos = this.plane.getPosition();
     this.cameraLookTarget = [planePos[0], planePos[1] + 1.5, planePos[2]];
     this.isReady = true;
+
+    // Spawn initial enemies
+    this.enemyManager.spawn([0, 50, -300]);
+    this.enemyManager.spawn([100, 40, -250]);
   }
 
   handleMouseMove = (data: any) => {
@@ -91,6 +103,7 @@ export class GameScreen extends Screen {
     let yawInput = 0;
     let throttleInput = 0;
     let specialMove = false;
+    let fireInput = false;
     
     if (inputManager.isActiveAction('ROLL_LEFT')) rollInput += 1;
     if (inputManager.isActiveAction('ROLL_RIGHT')) rollInput -= 1;
@@ -101,6 +114,7 @@ export class GameScreen extends Screen {
     if (inputManager.isActiveAction('THR_UP')) throttleInput += 1;
     if (inputManager.isActiveAction('THR_DOWN')) throttleInput -= 1;
     if (inputManager.isActiveAction('SPECIAL_MOVE')) specialMove = true;
+    if (inputManager.isActiveAction('FIRE') || inputManager.isMouseDown()) fireInput = true;
     
     // Also use mouse for pitch/yaw if pointer is locked
     if (inputManager.isPointerLockCaptured()) {
@@ -124,6 +138,40 @@ export class GameScreen extends Screen {
 
     this.level.update(ts);
     this.plane.update(ts, rollInput, pitchInput, yawInput, throttleInput, specialMove);
+
+    if (this.fireCooldown > 0) {
+        this.fireCooldown -= ts;
+    }
+    if (fireInput && this.fireCooldown <= 0 && !this.plane.isLanded) {
+        this.fireCooldown = 150.0; // msg between shots
+        
+        // Shoot from under wings
+        const planePos = this.plane.getPosition();
+        const planeRot = this.plane.rotation;
+        const forward = planeRot.rotateVector([0, 0, -1]);
+        const right = planeRot.rotateVector([1, 0, 0]);
+        const down = planeRot.rotateVector([0, -1, 0]);
+        
+        // Left wing gun
+        const leftWingGun = [
+            planePos[0] - right[0] * 3.0 + down[0] * 0.5,
+            planePos[1] - right[1] * 3.0 + down[1] * 0.5,
+            planePos[2] - right[2] * 3.0 + down[2] * 0.5,
+        ] as vec3;
+        
+        // Right wing gun
+        const rightWingGun = [
+            planePos[0] + right[0] * 3.0 + down[0] * 0.5,
+            planePos[1] + right[1] * 3.0 + down[1] * 0.5,
+            planePos[2] + right[2] * 3.0 + down[2] * 0.5,
+        ] as vec3;
+        
+        this.bulletManager.fire(leftWingGun, forward);
+        this.bulletManager.fire(rightWingGun, forward);
+    }
+    
+    this.bulletManager.update(ts);
+    this.enemyManager.update(ts, this.plane.getPosition(), this.bulletManager);
 
     // Camera follow the plane smoothly
     const followPos = this.plane.getPosition();
@@ -225,6 +273,9 @@ export class GameScreen extends Screen {
 
     this.level.draw(camPos);
     this.plane.draw();
+    
+    this.bulletManager.draw();
+    this.enemyManager.draw();
     
     gfx3Manager.endDrawing();
   }
