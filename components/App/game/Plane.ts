@@ -107,7 +107,10 @@ export class Plane {
     if (specialMove && !this.isBarrelRolling && !this.isLanded) {
         this.isBarrelRolling = true;
         this.barrelRollProgress = 0;
-        this.barrelRollDirection = rollInput < 0 ? -1 : 1; // Bank left if roll right input, default 1
+        this.barrelRollDirection = rollInput < 0 ? -1 : 1; 
+        
+        // Speed boost that exceeds normal max speed
+        this.velocity = Math.min(130, this.velocity + 50);
     }
 
     if (planeY <= groundY + 0.1) {
@@ -206,23 +209,32 @@ export class Plane {
     let deltaRoll = this.rollRate * dt;
 
     if (this.isBarrelRolling) {
-        const rollSpeed = Math.PI * 2 / 1.0; // 1 second to complete
-        const frameRoll = rollSpeed * dt;
-        deltaRoll = frameRoll * this.barrelRollDirection;
-        this.barrelRollProgress += frameRoll;
+        const rollDuration = 0.55; // 0.55 seconds for a fast, snappy roll
+        const prevProgress = this.barrelRollProgress;
+        this.barrelRollProgress += dt / rollDuration;
+        
+        const t1 = Math.min(1.0, prevProgress);
+        const t2 = Math.min(1.0, this.barrelRollProgress);
+        
+        // Smoothstep easing for acceleration and deceleration
+        const ease1 = t1 * t1 * (3 - 2 * t1);
+        const ease2 = t2 * t2 * (3 - 2 * t2);
+        
+        const deltaAngle = (ease2 - ease1) * Math.PI * 2;
+        deltaRoll = deltaAngle * this.barrelRollDirection;
+        
+        // Slight pitch up during roll to make it helical (a true barrel roll)
+        deltaPitch = Math.sin(t2 * Math.PI) * 0.5 * dt;
 
-        if (this.barrelRollProgress >= Math.PI * 2) {
+        if (this.barrelRollProgress >= 1.0) {
             this.isBarrelRolling = false;
-            // Snapping handled naturally or could clamp
-            const overshoot = this.barrelRollProgress - Math.PI * 2;
-            deltaRoll -= overshoot * this.barrelRollDirection;
         }
 
         // Lock other controls during roll
-        deltaPitch = 0;
         deltaYaw = 0;
         this.pitchRate = 0;
         this.yawRate = 0;
+        this.rollRate = 0;
     } else if (this.isLanded) {
         // Auto-level roll
         const localRight = this.rotation.rotateVector([1, 0, 0]);
