@@ -209,7 +209,7 @@ export class Plane {
     let deltaRoll = this.rollRate * dt;
 
     if (this.isBarrelRolling) {
-        const rollDuration = 0.55; // 0.55 seconds for a fast, snappy roll
+        const rollDuration = 1.0; // 1.0 seconds for a smooth, cinematic roll
         const prevProgress = this.barrelRollProgress;
         this.barrelRollProgress += dt / rollDuration;
         

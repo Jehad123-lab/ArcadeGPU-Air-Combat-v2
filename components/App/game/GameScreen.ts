@@ -24,6 +24,7 @@ export class GameScreen extends Screen {
   moveDir = { x: 0, y: 0 };
   
   cameraLookTarget: vec3 = [0, 0, 0];
+  cameraRollLerp: number = 0.5;
   isReady: boolean = false;
   
   frameMouseX: number = 0;
@@ -140,8 +141,15 @@ export class GameScreen extends Screen {
     
     // Dynamic camera back offset based on velocity
     const speedFactor = Math.max(0, (this.plane.velocity - 50) / 100.0);
-    const zOffset = 18 + speedFactor * 8.0; 
-    const yOffset = 4 + speedFactor * 2.0;
+    let zOffset = 18 + speedFactor * 8.0; 
+    let yOffset = 4 + speedFactor * 2.0;
+
+    // Cinematic pull-back effect during barrel roll
+    if (this.plane.isBarrelRolling) {
+        const rollT = this.plane.barrelRollProgress;
+        const pullBack = Math.sin(rollT * Math.PI) * 15.0; // Dynamic zoom out
+        zOffset += pullBack;
+    }
 
     const camOffset = offsetQuat.rotateVector([0, yOffset, zOffset]);
     
@@ -157,8 +165,14 @@ export class GameScreen extends Screen {
     
     const camPos = this.camera.getPosition();
     // Use much faster lerp rates to keep the plane centered
-    const posLerpRate = 1.0 - Math.exp(-15.0 * (ts / 1000));
-    const targetLerpRate = 1.0 - Math.exp(-20.0 * (ts / 1000));
+    let posLerpRate = 1.0 - Math.exp(-15.0 * (ts / 1000));
+    let targetLerpRate = 1.0 - Math.exp(-20.0 * (ts / 1000));
+
+    // Loosen the follow rate during barrel roll to let plane drift in frame slightly
+    if (this.plane.isBarrelRolling) {
+        posLerpRate = 1.0 - Math.exp(-4.0 * (ts / 1000));
+        targetLerpRate = 1.0 - Math.exp(-6.0 * (ts / 1000));
+    }
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
     const desiredLookTarget = [
@@ -172,7 +186,12 @@ export class GameScreen extends Screen {
     // Dynamic camera up vector: rolls slightly into turns (30% of plane roll)
     const planeUp = planeRot.rotateVector([0, 1, 0]);
     const staticUp: vec3 = [0, 1, 0];
-    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, 0.5)); // 50% roll follow for better feel
+    
+    // Smoothly blend out camera roll during barrel roll so the universe doesn't spin
+    const targetCameraRoll = this.plane.isBarrelRolling ? 0.05 : 0.5;
+    this.cameraRollLerp = UT.LERP(this.cameraRollLerp, targetCameraRoll, 1.0 - Math.exp(-4.0 * (ts / 1000)));
+    
+    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, this.cameraRollLerp));
 
     if (!isNaN(lerpedPos[0]) && !isNaN(lerpedPos[1]) && !isNaN(lerpedPos[2])) {
         // Camera shake at high speeds
