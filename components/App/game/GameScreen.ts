@@ -136,7 +136,7 @@ export class GameScreen extends Screen {
     
     // Dynamic camera back offset based on velocity
     const speedFactor = Math.max(0, (this.plane.velocity - 50) / 100.0);
-    const zOffset = 18 + speedFactor * 10.0; 
+    const zOffset = 18 + speedFactor * 8.0; 
     const yOffset = 4 + speedFactor * 2.0;
 
     const camOffset = offsetQuat.rotateVector([0, yOffset, zOffset]);
@@ -152,23 +152,29 @@ export class GameScreen extends Screen {
     ] as vec3;
     
     const camPos = this.camera.getPosition();
-    const posLerpRate = 1.0 - Math.exp(-6.0 * (ts / 1000));
-    const targetLerpRate = 1.0 - Math.exp(-10.0 * (ts / 1000));
+    // Use much faster lerp rates to keep the plane centered
+    const posLerpRate = 1.0 - Math.exp(-15.0 * (ts / 1000));
+    const targetLerpRate = 1.0 - Math.exp(-20.0 * (ts / 1000));
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
-    const desiredLookTarget = [followPos[0], followPos[1] + 2.0, followPos[2]] as vec3; // slightly higher
+    const desiredLookTarget = [
+        followPos[0] - forwardVec[0] * 5.0, // Look slightly ahead of the plane, not just at it
+        followPos[1] - forwardVec[1] * 5.0 + 2.0, 
+        followPos[2] - forwardVec[2] * 5.0
+    ] as vec3;
+    
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, desiredLookTarget, targetLerpRate);
     
     // Dynamic camera up vector: rolls slightly into turns (30% of plane roll)
     const planeUp = planeRot.rotateVector([0, 1, 0]);
     const staticUp: vec3 = [0, 1, 0];
-    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, 0.3));
+    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, 0.5)); // 50% roll follow for better feel
 
     if (!isNaN(lerpedPos[0]) && !isNaN(lerpedPos[1]) && !isNaN(lerpedPos[2])) {
         // Camera shake at high speeds
         let shakeX = 0, shakeY = 0, shakeZ = 0;
         if (speedFactor > 0.5) {
-            const shakeMag = (speedFactor - 0.5) * 1.5;
+            const shakeMag = (speedFactor - 0.5) * 0.8; // Reduced shake magnitude
             shakeX = (Math.random() - 0.5) * shakeMag;
             shakeY = (Math.random() - 0.5) * shakeMag;
             shakeZ = (Math.random() - 0.5) * shakeMag;
