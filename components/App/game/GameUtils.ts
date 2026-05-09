@@ -42,6 +42,51 @@ export function createBoxMesh(width: number, height: number, depth: number, colo
   return mesh;
 }
 
+export function createLaserMesh(size: number, length: number, coreColor: [number, number, number], glowColor: [number, number, number]): Gfx3Mesh {
+  const mesh = new Gfx3Mesh();
+  mesh.setTag(0, 0, Gfx3MeshEffect.PIXELATION); 
+
+  const coords: number[] = [];
+  const colors: number[] = [];
+  const normals: number[] = [];
+
+  function addBoxCoords(w: number, h: number, d: number, color: vec3) {
+    const boxCoords = [
+      -w, -h,  d,  w, -h,  d,  w,  h,  d,  -w, -h,  d,  w,  h,  d, -w,  h,  d,
+       w, -h, -d, -w, -h, -d, -w,  h, -d,   w, -h, -d, -w,  h, -d,  w,  h, -d,
+      -w,  h,  d,  w,  h,  d,  w,  h, -d,  -w,  h,  d,  w,  h, -d, -w,  h, -d,
+      -w, -h, -d,  w, -h, -d,  w, -h,  d,  -w, -h, -d,  w, -h,  d, -w, -h,  d,
+       w, -h,  d,  w, -h, -d,  w,  h, -d,   w, -h,  d,  w,  h, -d,  w,  h,  d,
+      -w, -h, -d, -w, -h,  d, -w,  h,  d,  -w, -h, -d, -w,  h,  d, -w,  h, -d
+    ];
+    for (let i = 0; i < boxCoords.length; i += 18) {
+      const v0: vec3 = [boxCoords[i], boxCoords[i+1], boxCoords[i+2]];
+      const v1: vec3 = [boxCoords[i+3], boxCoords[i+4], boxCoords[i+5]];
+      const v2: vec3 = [boxCoords[i+6], boxCoords[i+7], boxCoords[i+8]];
+      const e1 = UT.VEC3_SUBSTRACT(v1, v0);
+      const e2 = UT.VEC3_SUBSTRACT(v2, v0);
+      let normal = UT.VEC3_NORMALIZE(UT.VEC3_CROSS(e1, e2));
+      if (isNaN(normal[0])) normal = [0, 1, 0];
+      for (let j = 0; j < 6; j++) {
+        coords.push(boxCoords[i + j*3], boxCoords[i + j*3 + 1], boxCoords[i + j*3 + 2]);
+        colors.push(color[0], color[1], color[2]);
+        normals.push(normal[0], normal[1], normal[2]);
+      }
+    }
+  }
+
+  addBoxCoords(size * 0.4, size * 0.4, length * 0.5, coreColor);
+  addBoxCoords(size * 0.2, size * 1.0, length * 0.45, glowColor);
+  addBoxCoords(size * 1.0, size * 0.2, length * 0.45, glowColor);
+
+  mesh.geo = Gfx3Mesh.buildVertices(coords.length / 3, coords, [], colors, normals);
+  mesh.beginVertices(coords.length / 3);
+  mesh.setVertices(mesh.geo.vertices);
+  mesh.endVertices();
+
+  return mesh;
+}
+
 export function generateHeightmapCanvas(width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = width;

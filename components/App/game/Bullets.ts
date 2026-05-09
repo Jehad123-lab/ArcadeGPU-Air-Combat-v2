@@ -1,6 +1,6 @@
 import { gfx3MeshRenderer } from '@lib/gfx3_mesh/gfx3_mesh_renderer';
 import { Gfx3Mesh } from '@lib/gfx3_mesh/gfx3_mesh';
-import { createBoxMesh } from './GameUtils';
+import { createBoxMesh, createLaserMesh } from './GameUtils';
 import { UT } from '@lib/core/utils';
 import { Quaternion } from '@lib/core/quaternion';
 
@@ -54,8 +54,14 @@ export class BulletManager {
     bullets: Bullet[] = [];
     bulletMesh: Gfx3Mesh;
     
-    constructor(color: vec3 = [1.0, 0.8, 0.1]) {
-        this.bulletMesh = createBoxMesh(0.2, 0.2, 3.5, color); 
+    constructor(glowColor: vec3 = [1.0, 0.8, 0.1]) {
+        // inner core is bright white mixed with glow color
+        const coreColor: vec3 = [
+            Math.min(1.0, glowColor[0] + 0.8),
+            Math.min(1.0, glowColor[1] + 0.8),
+            Math.min(1.0, glowColor[2] + 0.8)
+        ];
+        this.bulletMesh = createLaserMesh(0.4, 5.0, coreColor as [number, number, number], glowColor as [number, number, number]); 
     }
 
     fire(pos: vec3, dir: vec3, quat: Quaternion) {
