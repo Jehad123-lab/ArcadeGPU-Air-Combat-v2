@@ -194,6 +194,16 @@ export class GameScreen extends Screen {
     this.bulletManager.update(ts);
     this.enemyManager.update(ts, this.plane.getPosition(), this.plane.rotation, this.bulletManager);
 
+    // Player damage logic (only visual for now, as requested)
+    for (const b of this.enemyManager.enemyBullets.bullets) {
+        if (!b.active) continue;
+        const dist = UT.VEC3_DISTANCE(this.plane.getPosition(), b.position);
+        if (dist < 8.0) { // Hit radius for player
+            b.active = false;
+            this.plane.health = Math.max(0, this.plane.health - 5);
+        }
+    }
+
     // Camera follow the plane smoothly
     const followPos = this.plane.getPosition();
     const planeRot = this.plane.rotation;

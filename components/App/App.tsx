@@ -93,6 +93,49 @@ const ScoreDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen 
     );
 };
 
+const HealthBar = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen | null> }) => {
+    const [health, setHealth] = useState(100);
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (gameRef.current && gameRef.current.plane) {
+                setHealth(gameRef.current.plane.health);
+            }
+        }, 50);
+        return () => clearInterval(interval);
+    }, [gameRef]);
+    
+    return (
+        <div className="flex flex-col gap-1 w-64">
+            <div className="flex justify-between items-end">
+                <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Structural Integrity</span>
+                <span className="text-white text-sm font-mono">{Math.round(health)}%</span>
+            </div>
+            <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                <motion.div 
+                    className="h-full bg-gradient-to-r from-red-600 via-red-500 to-red-400"
+                    initial={{ width: '100%' }}
+                    animate={{ width: `${health}%` }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                    style={{
+                        boxShadow: health < 30 ? '0 0 12px rgba(239, 68, 68, 0.6)' : 'none'
+                    }}
+                />
+            </div>
+            {health < 30 && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0.3, 0.7, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className="text-red-500 text-[9px] font-bold uppercase tracking-[0.2em] mt-1"
+                >
+                    Critical Damage Warning
+                </motion.div>
+            )}
+        </div>
+    );
+};
+
 const VirtualJoystickDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen | null> }) => {
     const [vx, setVx] = useState(0);
     const [vy, setVy] = useState(0);
@@ -205,10 +248,14 @@ const App = () => {
                 </div>
             </div>
             
-            <div className="absolute top-8 right-8 pointer-events-none">
+            <div className="absolute top-8 right-8 pointer-events-none flex flex-col items-end gap-4">
                 <div className="bg-emerald-500/20 backdrop-blur-md px-6 py-4 rounded-xl border border-emerald-500/30 text-right">
                     <div className="text-emerald-400 text-sm font-bold uppercase tracking-widest mb-1">SCORE</div>
                     <ScoreDisplay gameRef={gameScreenRef} />
+                </div>
+                
+                <div className="bg-black/30 backdrop-blur-md px-4 py-3 rounded-xl border border-white/10">
+                    <HealthBar gameRef={gameScreenRef} />
                 </div>
             </div>
 

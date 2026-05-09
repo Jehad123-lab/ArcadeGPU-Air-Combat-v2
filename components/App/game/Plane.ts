@@ -28,6 +28,7 @@ export class Plane {
   strutBack: Gfx3Mesh;
 
   physicsBody: any;
+  health: number = 100;
   velocity: number = 0; // Default cruising speed
   isLanded: boolean = false;
   wheelRetractState: number = 0; // 0 = down, 1 = up
