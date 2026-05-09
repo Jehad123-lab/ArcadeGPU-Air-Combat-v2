@@ -135,7 +135,7 @@ export class GameScreen extends Screen {
         
         yawInput -= this.virtualMouseX * 0.3; 
         rollInput -= this.virtualMouseX * 1.0; 
-        pitchInput += this.virtualMouseY * 1.0; 
+        pitchInput -= this.virtualMouseY * 1.0; // Inverted for regular FPS-style up/down
         
         yawInput = Math.max(-1, Math.min(1, yawInput));
         rollInput = Math.max(-1, Math.min(1, rollInput));
