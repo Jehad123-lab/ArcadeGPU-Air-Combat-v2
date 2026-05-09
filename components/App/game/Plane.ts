@@ -81,7 +81,7 @@ export class Plane {
     this.strutBack = createBoxMesh(0.1, 0.4, 0.1, strutColor);
 
     this.physicsBody = gfx3JoltManager.addBox({
-      width: 1.2, height: 1.2, depth: 7.0, // approximate full size
+      width: 1.0, height: 1.0, depth: 1.0, // smaller physics body so tail/nose don't hit the ground and flip the plane
       x: 0, y: 1.3, z: 0,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
@@ -193,7 +193,7 @@ export class Plane {
 
     if (this.isLanded) {
         targetRollRate = 0;
-        targetPitchRate = pitchInput * 1.5; // Allow pulling up to takeoff
+        targetPitchRate = Math.max(-0.1, Math.min(0.5, pitchInput * 1.5)); // Allow pulling up to takeoff gently, prevent massive backward flips
         targetYawRate = yawInput * 1.5; // Steer on ground
     }
 

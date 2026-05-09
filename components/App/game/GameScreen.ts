@@ -127,13 +127,17 @@ export class GameScreen extends Screen {
         this.virtualMouseX = Math.max(-1, Math.min(1, this.virtualMouseX));
         this.virtualMouseY = Math.max(-1, Math.min(1, this.virtualMouseY));
         
-        // No auto-decay so cursor stays where you put it!
-        // this.virtualMouseX *= Math.exp(-2.5 * (ts / 1000));
-        // this.virtualMouseY *= Math.exp(-2.5 * (ts / 1000));
+        const mouseSmooth = Math.exp(-15.0 * (ts / 1000));
         
-        yawInput -= this.virtualMouseX * 1.0; 
-        rollInput -= this.virtualMouseX * 2.0; 
-        pitchInput += this.virtualMouseY * 2.0; 
+        this.virtualMouseX = this.virtualMouseX * mouseSmooth + this.frameMouseX * 0.002;
+        this.virtualMouseY = this.virtualMouseY * mouseSmooth + this.frameMouseY * 0.002;
+        
+        this.virtualMouseX = Math.max(-1, Math.min(1, this.virtualMouseX));
+        this.virtualMouseY = Math.max(-1, Math.min(1, this.virtualMouseY));
+        
+        yawInput -= this.virtualMouseX * 0.5; 
+        rollInput -= this.virtualMouseX * 1.5; 
+        pitchInput += this.virtualMouseY * 1.5; 
     }
     this.frameMouseX = 0;
     this.frameMouseY = 0;
