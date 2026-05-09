@@ -247,6 +247,25 @@ export class Plane {
         }
     }
 
+    // Soft clamp pitch to prevent full loops / flipping upside down
+    if (!this.isBarrelRolling) {
+        const fw = this.rotation.rotateVector([0, 0, -1]);
+        const pAngle = Math.asin(Math.max(-1, Math.min(1, fw[1])));
+        // Limit to 85 degrees (1.48 radians)
+        if (pAngle > 1.48 && deltaPitch < 0) {
+            deltaPitch = 0;
+            this.pitchRate = 0;
+        }
+        if (pAngle < -1.48 && deltaPitch > 0) {
+            deltaPitch = 0;
+            this.pitchRate = 0;
+        }
+        
+        // Also auto-recover slightly if pushed past 90 somehow
+        if (pAngle > 1.5) deltaPitch += 0.5 * dt;
+        if (pAngle < -1.5) deltaPitch -= 0.5 * dt;
+    }
+
     const localRot = Quaternion.createFromEuler(deltaYaw, deltaPitch, deltaRoll, 'YXZ');
     this.rotation = Quaternion.multiply(this.rotation, localRot);
     
