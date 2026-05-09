@@ -199,27 +199,41 @@ export class GameScreen extends Screen {
     const planeRot = this.plane.rotation;
     
     const forwardVec = planeRot.rotateVector([0, 0, -1]);
+    const planeUp = planeRot.rotateVector([0, 1, 0]);
     
-    // Extract yaw and pitch for smooth camera follow (ignoring roll so camera stays upright)
-    // Warning: atan2 can be unstable pointing straight up, but for arcade camera it's usually acceptable if we clamp or smooth
-    let camYaw = Math.atan2(forwardVec[0], forwardVec[2]) + Math.PI; // pointing towards -Z
-    let camPitch = Math.asin(-forwardVec[1]);
-    
-    // Offset behind and up 
-    const offsetQuat = Quaternion.createFromEuler(camYaw, camPitch * 0.6, 0, 'YXZ');
-    
-    // Dynamic camera back offset based on velocity
-    const speedFactor = Math.max(0, (this.plane.velocity - 50) / 100.0);
-    let zOffset = 18 + speedFactor * 8.0; 
-    let yOffset = 4 + speedFactor * 2.0;
-
     // Cinematic pull-back effect during barrel roll
     const rollT = this.plane.isBarrelRolling ? this.plane.barrelRollProgress : 0;
     const rollBlend = Math.sin(rollT * Math.PI); // Smooth bell curve 0 -> 1 -> 0
+    
+    // Dynamic camera back offset based on velocity
+    const speedFactor = Math.max(0, (this.plane.velocity - 50) / 100.0);
+    let zOffset = 18 + speedFactor * 8.0 + rollBlend * 12.0; 
+    let yOffset = 4 + speedFactor * 2.0;
 
-    zOffset += rollBlend * 12.0; // Dynamic zoom out during barrel roll
-
-    const camOffset = offsetQuat.rotateVector([0, yOffset, zOffset]);
+    // Smoothly blend out camera roll during barrel roll so the universe doesn't spin wildly
+    const targetCameraRoll = 0.5 * (1.0 - rollBlend * 0.9); // goes from 0.5 to 0.05
+    this.cameraRollLerp = UT.LERP(this.cameraRollLerp, targetCameraRoll, 1.0 - Math.exp(-8.0 * (ts / 1000)));
+    
+    // Static Up vector, but we blend it with planeUp so camera can pass zenith in loops 
+    // At high pitch (pointing up/down), we must lean more on planeUp to avoid gimbal lock!
+    const pitchAbs = Math.abs(forwardVec[1]);
+    // As pitch approaches 1 (zenith), we fully use planeUp
+    const zenithBlend = Math.pow(pitchAbs, 4.0); // 0 at level, ~1 at vertical
+    const effectiveRollLerp = Math.max(this.cameraRollLerp, zenithBlend);
+    
+    const staticUp: vec3 = [0, 1, 0];
+    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, effectiveRollLerp));
+    
+    // Now construct offset using forwardVec and our safe cameraUp
+    const rightVec = UT.VEC3_NORMALIZE(UT.VEC3_CROSS(forwardVec, cameraUp)); // careful if parallel, but zenithBlend prevents it
+    // Actual orthogonal up
+    const orthoUp = UT.VEC3_NORMALIZE(UT.VEC3_CROSS(rightVec, forwardVec));
+    
+    const camOffset = [
+        -forwardVec[0] * zOffset + orthoUp[0] * yOffset,
+        -forwardVec[1] * zOffset + orthoUp[1] * yOffset,
+        -forwardVec[2] * zOffset + orthoUp[2] * yOffset
+    ] as vec3;
     
     if (!followPos || isNaN(followPos[0]) || isNaN(followPos[1]) || isNaN(followPos[2])) {
         return;
@@ -249,16 +263,6 @@ export class GameScreen extends Screen {
     
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, desiredLookTarget, targetLerpRate);
     
-    // Dynamic camera up vector: rolls slightly into turns (30% of plane roll)
-    const planeUp = planeRot.rotateVector([0, 1, 0]);
-    const staticUp: vec3 = [0, 1, 0];
-    
-    // Smoothly blend out camera roll during barrel roll so the universe doesn't spin wildly
-    const targetCameraRoll = 0.5 * (1.0 - rollBlend * 0.9); // goes from 0.5 to 0.05
-    this.cameraRollLerp = UT.LERP(this.cameraRollLerp, targetCameraRoll, 1.0 - Math.exp(-8.0 * (ts / 1000)));
-    
-    const cameraUp = UT.VEC3_NORMALIZE(UT.VEC3_LERP(staticUp, planeUp, this.cameraRollLerp));
-
     if (!isNaN(lerpedPos[0]) && !isNaN(lerpedPos[1]) && !isNaN(lerpedPos[2])) {
         // Camera shake at high speeds
         let shakeX = 0, shakeY = 0, shakeZ = 0;
