@@ -120,24 +120,26 @@ export class GameScreen extends Screen {
     
     // Also use mouse for pitch/yaw if pointer is locked
     if (inputManager.isPointerLockCaptured()) {
-        this.virtualMouseX += this.frameMouseX * 0.003; 
-        this.virtualMouseY += this.frameMouseY * 0.003;
         
-        // Clamp virtual mouse
-        this.virtualMouseX = Math.max(-1, Math.min(1, this.virtualMouseX));
-        this.virtualMouseY = Math.max(-1, Math.min(1, this.virtualMouseY));
-        
-        const mouseSmooth = Math.exp(-15.0 * (ts / 1000));
-        
-        this.virtualMouseX = this.virtualMouseX * mouseSmooth + this.frameMouseX * 0.002;
-        this.virtualMouseY = this.virtualMouseY * mouseSmooth + this.frameMouseY * 0.002;
+        if (Math.abs(this.frameMouseX) > 0 || Math.abs(this.frameMouseY) > 0) {
+            this.virtualMouseX += this.frameMouseX * 0.005;
+            this.virtualMouseY += this.frameMouseY * 0.005;
+        } else {
+            const mouseSmooth = Math.exp(-4.0 * (ts / 1000));
+            this.virtualMouseX *= mouseSmooth;
+            this.virtualMouseY *= mouseSmooth;
+        }
         
         this.virtualMouseX = Math.max(-1, Math.min(1, this.virtualMouseX));
         this.virtualMouseY = Math.max(-1, Math.min(1, this.virtualMouseY));
         
-        yawInput -= this.virtualMouseX * 0.5; 
-        rollInput -= this.virtualMouseX * 1.5; 
-        pitchInput += this.virtualMouseY * 1.5; 
+        yawInput -= this.virtualMouseX * 0.3; 
+        rollInput -= this.virtualMouseX * 1.0; 
+        pitchInput += this.virtualMouseY * 1.0; 
+        
+        yawInput = Math.max(-1, Math.min(1, yawInput));
+        rollInput = Math.max(-1, Math.min(1, rollInput));
+        pitchInput = Math.max(-1, Math.min(1, pitchInput));
     }
     this.frameMouseX = 0;
     this.frameMouseY = 0;

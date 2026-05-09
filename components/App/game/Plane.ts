@@ -142,11 +142,11 @@ export class Plane {
     const dt = ts / 1000;
     
     // Convert inputs to target rates
-    const rollResponsiveness = 3.5;
-    const pitchResponsiveness = 2.0;
+    const rollResponsiveness = 3.0;
+    const pitchResponsiveness = 1.3;
     
     const normalizedSpeed = Math.max(0, Math.min(1, (this.velocity - 20) / (maxSpeed - 20)));
-    const maneuverability = this.isLanded ? 0 : 0.5 + 0.5 * Math.sin(normalizedSpeed * Math.PI); // best around middle speed
+    const maneuverability = this.isLanded ? 0 : 0.4 + 0.6 * Math.sin(normalizedSpeed * Math.PI); // best around middle speed
 
     // Natural bank-to-turn and auto-level
     const localRight = this.rotation.rotateVector([1, 0, 0]);

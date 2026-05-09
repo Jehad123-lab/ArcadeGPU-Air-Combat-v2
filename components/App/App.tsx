@@ -93,6 +93,35 @@ const ScoreDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen 
     );
 };
 
+const VirtualJoystickDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen | null> }) => {
+    const [vx, setVx] = useState(0);
+    const [vy, setVy] = useState(0);
+    
+    useEffect(() => {
+        let frame: number;
+        const loop = () => {
+            if (gameRef.current) {
+                setVx(gameRef.current.virtualMouseX);
+                setVy(gameRef.current.virtualMouseY);
+            }
+            frame = requestAnimationFrame(loop);
+        };
+        frame = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(frame);
+    }, [gameRef]);
+    
+    return (
+        <div 
+            className="absolute rounded-full border border-white/60 shadow-[0_0_8px_rgba(255,255,255,0.4)] w-[16px] h-[16px] pointer-events-none transition-transform duration-75 mix-blend-difference"
+            style={{
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${vx * 150}px), calc(-50% + ${vy * 150}px))`
+            }}
+        />
+    );
+};
+
 // --- APP COMPONENT ---
 
 const App = () => {
@@ -188,6 +217,7 @@ const App = () => {
                <div className="absolute w-[40px] h-[2px] bg-emerald-400 rounded shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
                <div className="absolute w-[2px] h-[40px] bg-emerald-400 rounded shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
                <div className="absolute w-[60px] h-[60px] rounded-full border-2 border-emerald-400/50"></div>
+               <VirtualJoystickDisplay gameRef={gameScreenRef} />
             </div>
 
             <div className="pointer-events-auto flex justify-between items-end w-full pb-8">
