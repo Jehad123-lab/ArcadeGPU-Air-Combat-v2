@@ -48,7 +48,9 @@ export class BulletManager {
     
     constructor(glowColor: vec3 = [1.0, 0.6, 0.1]) {
         // Simple bright stretched box for a tracer round
-        this.bulletMesh = createBoxMesh(0.08, 0.08, 6.0, glowColor); 
+        this.bulletMesh = createBoxMesh(0.08, 0.08, 6.0, glowColor);
+        this.bulletMesh.mat.setLightning(false);
+        this.bulletMesh.mat.setEmissive(glowColor[0], glowColor[1], glowColor[2], 1.0);
     }
 
     fire(pos: vec3, dir: vec3, quat: Quaternion) {
