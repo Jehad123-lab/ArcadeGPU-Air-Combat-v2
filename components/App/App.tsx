@@ -74,6 +74,54 @@ const Joystick = ({ onChange }: { onChange: (dir: { x: number, y: number }) => v
     );
 };
 
+const ScoreDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen | null> }) => {
+    const [score, setScore] = useState(0);
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (gameRef.current && gameRef.current.enemyManager) {
+                setScore(gameRef.current.enemyManager.score);
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, [gameRef]);
+    
+    return (
+        <div className="text-white text-5xl font-bebas drop-shadow-md">
+            {score.toString().padStart(5, '0')}
+        </div>
+    );
+};
+
+const VirtualJoystickDisplay = ({ gameRef }: { gameRef: React.MutableRefObject<GameScreen | null> }) => {
+    const [vx, setVx] = useState(0);
+    const [vy, setVy] = useState(0);
+    
+    useEffect(() => {
+        let frame: number;
+        const loop = () => {
+            if (gameRef.current) {
+                setVx(gameRef.current.virtualMouseX);
+                setVy(gameRef.current.virtualMouseY);
+            }
+            frame = requestAnimationFrame(loop);
+        };
+        frame = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(frame);
+    }, [gameRef]);
+    
+    return (
+        <div 
+            className="absolute rounded-full border-2 border-white/80 shadow-[0_0_10px_rgba(255,255,255,0.8)] w-[24px] h-[24px] pointer-events-none transition-transform duration-75"
+            style={{
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${vx * 150}px), calc(-50% + ${vy * 150}px))`
+            }}
+        />
+    );
+};
+
 // --- APP COMPONENT ---
 
 const App = () => {
@@ -152,15 +200,24 @@ const App = () => {
                     <p className="text-white/60 text-[11px] font-mono leading-tight">W/S • THROTTLE</p>
                     <p className="text-white/60 text-[11px] font-mono leading-tight">A/D • ROLL</p>
                     <p className="text-white/60 text-[11px] font-mono leading-tight">Q/E • YAW</p>
-                    <p className="text-white/60 text-[11px] font-mono leading-tight">ARROWS • PITCH/YAW</p>
-                    <p className="text-white/60 text-[11px] font-mono leading-tight">MOUSE • STEER (PITCH/YAW)</p>
+                    <p className="text-white/60 text-[11px] font-mono leading-tight">SPACE / LClick • FIRE</p>
+                    <p className="text-white/60 text-[11px] font-mono leading-tight">SHIFT • BARREL ROLL</p>
                 </div>
             </div>
             
-            <div className="fixed inset-0 pointer-events-none flex items-center justify-center mix-blend-difference opacity-50">
-               <div className="absolute w-[20px] h-[2px] bg-white rounded"></div>
-               <div className="absolute w-[2px] h-[20px] bg-white rounded"></div>
-               <div className="absolute w-[4px] h-[4px] bg-transparent border border-white rounded-full"></div>
+            <div className="absolute top-8 right-8 pointer-events-none">
+                <div className="bg-emerald-500/20 backdrop-blur-md px-6 py-4 rounded-xl border border-emerald-500/30 text-right">
+                    <div className="text-emerald-400 text-sm font-bold uppercase tracking-widest mb-1">SCORE</div>
+                    <ScoreDisplay gameRef={gameScreenRef} />
+                </div>
+            </div>
+
+            {/* HUD Crosshair */}
+            <div className="fixed inset-0 pointer-events-none flex items-center justify-center mix-blend-screen opacity-70">
+               <div className="absolute w-[40px] h-[2px] bg-emerald-400 rounded shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+               <div className="absolute w-[2px] h-[40px] bg-emerald-400 rounded shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+               <div className="absolute w-[60px] h-[60px] rounded-full border-2 border-emerald-400/50"></div>
+               <VirtualJoystickDisplay gameRef={gameScreenRef} />
             </div>
 
             <div className="pointer-events-auto flex justify-between items-end w-full pb-8">

@@ -38,12 +38,14 @@ export class GameScreen extends Screen {
   virtualMouseX: number = 0;
   virtualMouseY: number = 0;
 
+  nextWingLeft: boolean = true;
+  
   constructor() {
     super();
     this.camera = new Gfx3Camera(0);
     this.plane = new Plane();
     this.level = new Environment();
-    this.bulletManager = new BulletManager();
+    this.bulletManager = new BulletManager([0.1, 0.8, 1.0]); // Glowing cyan player lasers
     this.enemyManager = new EnemyManager();
   }
 
@@ -125,13 +127,13 @@ export class GameScreen extends Screen {
         this.virtualMouseX = Math.max(-1, Math.min(1, this.virtualMouseX));
         this.virtualMouseY = Math.max(-1, Math.min(1, this.virtualMouseY));
         
-        // Decay to auto-center when not moving
-        this.virtualMouseX *= Math.exp(-2.5 * (ts / 1000));
-        this.virtualMouseY *= Math.exp(-2.5 * (ts / 1000));
+        // No auto-decay so cursor stays where you put it!
+        // this.virtualMouseX *= Math.exp(-2.5 * (ts / 1000));
+        // this.virtualMouseY *= Math.exp(-2.5 * (ts / 1000));
         
-        yawInput -= this.virtualMouseX * 0.3; // mostly rudder
-        rollInput -= this.virtualMouseX; // mostly bank
-        pitchInput += this.virtualMouseY; // Pitch up/down
+        yawInput -= this.virtualMouseX * 1.0; 
+        rollInput -= this.virtualMouseX * 2.0; 
+        pitchInput += this.virtualMouseY * 2.0; 
     }
     this.frameMouseX = 0;
     this.frameMouseY = 0;
@@ -143,7 +145,7 @@ export class GameScreen extends Screen {
         this.fireCooldown -= ts;
     }
     if (fireInput && this.fireCooldown <= 0 && !this.plane.isLanded) {
-        this.fireCooldown = 150.0; // msg between shots
+        this.fireCooldown = 60.0; // Faster machine-gun style firing
         
         // Shoot from under wings
         const planePos = this.plane.getPosition();
@@ -152,26 +154,39 @@ export class GameScreen extends Screen {
         const right = planeRot.rotateVector([1, 0, 0]);
         const down = planeRot.rotateVector([0, -1, 0]);
         
-        // Left wing gun
-        const leftWingGun = [
-            planePos[0] - right[0] * 3.0 + down[0] * 0.5,
-            planePos[1] - right[1] * 3.0 + down[1] * 0.5,
-            planePos[2] - right[2] * 3.0 + down[2] * 0.5,
+        // Convergence point 200 units ahead
+        const targetPoint = [
+            planePos[0] + forward[0] * 200,
+            planePos[1] + forward[1] * 200,
+            planePos[2] + forward[2] * 200
         ] as vec3;
         
-        // Right wing gun
-        const rightWingGun = [
-            planePos[0] + right[0] * 3.0 + down[0] * 0.5,
-            planePos[1] + right[1] * 3.0 + down[1] * 0.5,
-            planePos[2] + right[2] * 3.0 + down[2] * 0.5,
-        ] as vec3;
+        if (this.nextWingLeft) {
+            // Left wing gun
+            const leftWingGun = [
+                planePos[0] - right[0] * 3.0 + down[0] * 0.5,
+                planePos[1] - right[1] * 3.0 + down[1] * 0.5,
+                planePos[2] - right[2] * 3.0 + down[2] * 0.5,
+            ] as vec3;
+            // Direction from gun to target
+            const aimDir = UT.VEC3_SUBSTRACT(targetPoint, leftWingGun);
+            this.bulletManager.fire(leftWingGun, UT.VEC3_NORMALIZE(aimDir), planeRot);
+        } else {
+            // Right wing gun
+            const rightWingGun = [
+                planePos[0] + right[0] * 3.0 + down[0] * 0.5,
+                planePos[1] + right[1] * 3.0 + down[1] * 0.5,
+                planePos[2] + right[2] * 3.0 + down[2] * 0.5,
+            ] as vec3;
+            const aimDir = UT.VEC3_SUBSTRACT(targetPoint, rightWingGun);
+            this.bulletManager.fire(rightWingGun, UT.VEC3_NORMALIZE(aimDir), planeRot);
+        }
         
-        this.bulletManager.fire(leftWingGun, forward);
-        this.bulletManager.fire(rightWingGun, forward);
+        this.nextWingLeft = !this.nextWingLeft;
     }
     
     this.bulletManager.update(ts);
-    this.enemyManager.update(ts, this.plane.getPosition(), this.bulletManager);
+    this.enemyManager.update(ts, this.plane.getPosition(), this.plane.rotation, this.bulletManager);
 
     // Camera follow the plane smoothly
     const followPos = this.plane.getPosition();
